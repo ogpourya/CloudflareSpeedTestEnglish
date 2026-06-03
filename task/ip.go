@@ -2,9 +2,12 @@ package task
 
 import (
 	"bufio"
+	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -147,6 +150,24 @@ func (r *IPRanges) chooseIPv6() {
 	}
 }
 
+func downloadIPFile(url string, filename string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+	out, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
 func loadIPRanges() []*net.IPAddr {
 	ranges := newIPRanges()
 	if IPText != "" { // Get IP range data from the parameter
@@ -169,7 +190,23 @@ func loadIPRanges() []*net.IPAddr {
 		}
 		file, err := os.Open(IPFile)
 		if err != nil {
-			log.Fatal(err)
+			if IPFile == defaultInputFile {
+				fmt.Printf("%s not found, downloading from Cloudflare...\n", IPFile)
+				err = downloadIPFile("https://www.cloudflare.com/ips-v4/", IPFile)
+				if err != nil {
+					fmt.Printf("Failed to download from Cloudflare: %v. Trying backup...\n", err)
+					err = downloadIPFile("https://github.com/ogpourya/CloudflareSpeedTestEnglish/raw/refs/heads/master/ip.txt", IPFile)
+				}
+				if err != nil {
+					log.Fatalf("Failed to download %s from all sources: %v\n", IPFile, err)
+				}
+				file, err = os.Open(IPFile)
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				log.Fatal(err)
+			}
 		}
 		defer file.Close()
 		scanner := bufio.NewScanner(file)
