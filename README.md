@@ -5,7 +5,7 @@
 
 Many websites use Cloudflare CDN, but the IPs allocated to visitors can be slow, have high latency, or drop packets. This tool helps you test Cloudflare CDN latency and download speed to find the fastest IP (IPv4 and IPv6) for your connection.
 
-This is an English translation and maintenance fork of the original [XIU2/CloudflareSpeedTest](https://github.com/XIU2/CloudflareSpeedTest).
+This is an English translation and maintenance fork of the original [XIU2/CloudflareSpeedTest](https://github.com/ogpourya/CloudflareSpeedTestEnglish).
 
 ---
 

@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/XIU2/CloudflareSpeedTest/task"
-	"github.com/XIU2/CloudflareSpeedTest/utils"
+	"github.com/ogpourya/CloudflareSpeedTestEnglish/task"
+	"github.com/ogpourya/CloudflareSpeedTestEnglish/utils"
 )
 
 var (
@@ -22,7 +22,7 @@ func init() {
 	var help = `
 CloudflareSpeedTest ` + version + `
 Test the latency and speed of all IPs of various CDNs or websites to get the fastest IP (IPv4+IPv6)!
-https://github.com/XIU2/CloudflareSpeedTest
+https://github.com/ogpourya/CloudflareSpeedTestEnglish
 
 Parameters:
     -n 200
@@ -122,7 +122,7 @@ Parameters:
 		fmt.Println("Checking for updates...")
 		checkUpdate()
 		if versionNew != "" {
-			utils.Yellow.Printf("*** New version [%s] found! Please go to [https://github.com/XIU2/CloudflareSpeedTest] to update! ***", versionNew)
+			utils.Yellow.Printf("*** New version [%s] found! Please go to [https://github.com/ogpourya/CloudflareSpeedTestEnglish] to update! ***", versionNew)
 		} else {
 			utils.Green.Println("Current version [" + version + "] is up to date!")
 		}
