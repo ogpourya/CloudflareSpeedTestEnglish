@@ -16,7 +16,8 @@ This is an English translation and maintenance fork of the original [XIU2/Cloudf
 You can install the tool directly using Go:
 
 ```bash
-go install github.com/ogpourya/CloudflareSpeedTestEnglish@latest -o cfst
+go install github.com/ogpourya/CloudflareSpeedTestEnglish@latest
+mv $(go env GOPATH)/bin/CloudflareSpeedTestEnglish $(go env GOPATH)/bin/cfst
 ```
 
 Alternatively, you can clone the repository and build it manually:
