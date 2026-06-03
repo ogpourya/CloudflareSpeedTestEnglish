@@ -1,72 +1,64 @@
 :: --------------------------------------------------------------
-::	项目: CloudflareSpeedTest 自动更新 Hosts
-::	版本: 1.0.5
-::	作者: XIU2
-::	项目: https://github.com/XIU2/CloudflareSpeedTest
+::	Project: CloudflareSpeedTest automatically update Hosts
+::	Version: 1.0.5
+::	Author: XIU2
+::	Project: https://github.com/XIU2/CloudflareSpeedTest
 :: --------------------------------------------------------------
 @echo off
 Setlocal Enabledelayedexpansion
 
-::判断是否已获得管理员权限
+:: Check whether administrator privileges have been obtained.
+>nul 2>&1 "%SYSTEMROOT%\system32\cacls.exe" "%SYSTEMROOT%\system32\config\system"
 
->nul 2>&1 "%SYSTEMROOT%\system32\cacls.exe" "%SYSTEMROOT%\system32\config\system" 
+if '%errorlevel%' NEQ '0' (
+    goto UACPrompt
+) else ( goto gotAdmin )
 
-if '%errorlevel%' NEQ '0' (  
-    goto UACPrompt  
-) else ( goto gotAdmin )  
+:: Write a VBS script to relaunch this batch file as administrator.
+:UACPrompt
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\getadmin.vbs"
+    echo UAC.ShellExecute "%~s0", "", "", "runas", 1 >> "%temp%\getadmin.vbs"
+    "%temp%\getadmin.vbs"
+    exit /B
 
-::写出 vbs 脚本以管理员身份运行本脚本（bat）
+:: Delete the temporary VBS script if it exists.
+:gotAdmin
+    if exist "%temp%\getadmin.vbs" ( del "%temp%\getadmin.vbs" )
+    pushd "%CD%"
+    CD /D "%~dp0"
 
-:UACPrompt  
-    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\getadmin.vbs" 
-    echo UAC.ShellExecute "%~s0", "", "", "runas", 1 >> "%temp%\getadmin.vbs" 
-    "%temp%\getadmin.vbs" 
-    exit /B  
+:: The script above checks for administrator privileges and requests them if missing.
 
-::如果临时 vbs 脚本存在，则删除
-  
-:gotAdmin  
-    if exist "%temp%\getadmin.vbs" ( del "%temp%\getadmin.vbs" )  
-    pushd "%CD%" 
-    CD /D "%~dp0" 
-
-
-::上面是判断是否以获得管理员权限，如果没有就去获取，下面才是本脚本主要代码
-
-
-::如果 nowip_hosts.txt 文件不存在，说明是第一次运行该脚本
+:: If nowip_hosts.txt does not exist, this is the first run.
 if not exist "nowip_hosts.txt" (
-    echo 该脚本的作用为 CFST 测速后获取最快 IP 并替换 Hosts 中的 Cloudflare CDN IP。
-    echo 使用前请先阅读：https://github.com/XIU2/CloudflareSpeedTest/issues/42#issuecomment-768273768
+    echo This script runs CFST to get the fastest IP and replace the Cloudflare CDN IP in Hosts.
+    echo Before use, please read: https://github.com/XIU2/CloudflareSpeedTest/issues/42#issuecomment-768273768
     echo.
-    echo 第一次使用，请先将 Hosts 中所有 Cloudflare CDN IP 统一改为一个 IP。
-    set /p nowip="输入该 Cloudflare CDN IP 并回车（后续不再需要该步骤）:"
+    echo On first use, change all Cloudflare CDN IPs in Hosts to the same IP.
+    set /p nowip="Enter that Cloudflare CDN IP and press Enter (this step will not be needed later):"
     echo !nowip!>nowip_hosts.txt
     echo.
-)  
+)
 
-::从 nowip_hosts.txt 文件获取当前 Hosts 中使用的 Cloudflare CDN IP
+:: Read the current Cloudflare CDN IP used by Hosts from nowip_hosts.txt.
 set /p nowip=<nowip_hosts.txt
-echo 开始测速...
+echo Starting speed test...
 
-
-:: 这个 RESET 是给需要 "找不到满足条件的 IP 就一直循环测速下去" 功能的人准备的
-:: 如果需要这个功能就把下面 3 个 goto :STOP 改为 goto :RESET 即可
+:: RESET prepares the optional keep-testing-until-a-qualifying-IP-is-found behavior.
+:: To use this feature, change the following 3 goto :STOP commands to goto :RESET.
 :RESET
 
-
-:: 这里可以自己添加、修改 CFST 的运行参数，echo.| 的作用是自动回车退出程序（不再需要加上 -p 0 参数了）
+:: You can add or modify CFST runtime parameters here. echo.| auto-confirms program exit, so -p 0 is no longer needed.
 echo.|cfst.exe -o "result_hosts.txt"
 
-
-:: 判断结果文件是否存在，如果不存在说明结果为 0
+:: Check whether the result file exists; if not, the result count is 0.
 if not exist result_hosts.txt (
     echo.
-    echo CFST 测速结果 IP 数量为 0，跳过下面步骤...
+    echo CFST speed test returned 0 IPs; skipping the following steps...
     goto :STOP
 )
 
-:: 获取第一行的最快 IP
+:: Get the IP from the first result row.
 for /f "skip=1 tokens=1 delims=," %%i in ('more result_hosts.txt') do (
     SET bestip=%%i
     goto :END
@@ -74,42 +66,41 @@ for /f "skip=1 tokens=1 delims=," %%i in ('more result_hosts.txt') do (
 
 :END
 
-:: 判断刚刚获取的最快 IP 是否为空，以及是否和旧 IP 一样
+:: Check whether the obtained IP is empty or the same as the old IP.
 if "%bestip%"=="" (
     echo.
-    echo CFST 测速结果 IP 数量为 0，跳过下面步骤...
+    echo CFST speed test returned 0 IPs; skipping the following steps...
     goto :STOP
 )
 if "%bestip%"=="%nowip%" (
     echo.
-    echo CFST 测速结果 IP 数量为 0，跳过下面步骤...
+    echo CFST speed test returned 0 IPs; skipping the following steps...
     goto :STOP
 )
 
-
-:: 下面这段代码是 "找不到满足条件的 IP 就一直循环测速下去" 才需要的代码
-:: 考虑到当指定了下载速度下限，但一个满足全部条件的 IP 都没找到时，CFST 就会输出所有 IP 结果
-:: 因此当你指定 -sl 参数时，需要移除下面这段代码开头的这个 :: 冒号注释符，来做文件行数判断（比如下载测速数量：10 个，那么下面的值就设在为 11）
+:: The following block is only needed for the keep-testing-until-a-qualifying-IP-is-found behavior.
+:: When a minimum download speed is specified but no IP meets all conditions, CFST outputs all IP results.
+:: Therefore, when specifying -sl, remove the leading :: comments below to check the file line count.
+:: For example, if the download test count is 10, set the value below to 11.
 ::set /a v=0
 ::for /f %%a in ('type result_hosts.txt') do set /a v+=1
 ::if %v% GTR 11 (
 ::    echo.
-::    echo CFST 测速结果没有找到一个完全满足条件的 IP，重新测速...
+::    echo CFST did not find an IP that fully meets the conditions; testing again...
 ::    goto :RESET
 ::)
 
-
 echo %bestip%>nowip_hosts.txt
 echo.
-echo 旧 IP 为 %nowip%
-echo 新 IP 为 %bestip%
+echo Old IP: %nowip%
+echo New IP: %bestip%
 
 CD /d "C:\Windows\System32\drivers\etc"
 echo.
-echo 开始备份 Hosts 文件（hosts_backup）...
+echo Backing up Hosts file (hosts_backup)...
 copy hosts hosts_backup
 echo.
-echo 开始替换...
+echo Starting replacement...
 (
     for /f "tokens=*" %%i in (hosts_backup) do (
         set s=%%i
@@ -118,7 +109,7 @@ echo 开始替换...
         )
 )>hosts
 
-echo 完成...
+echo Done...
 echo.
 :STOP
-pause 
+pause

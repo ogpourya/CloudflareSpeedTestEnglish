@@ -2,57 +2,57 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 # --------------------------------------------------------------
-#	项目: CloudflareSpeedTest 自动更新域名解析记录
-#	版本: 1.0.5
-#	作者: XIU2
-#	项目: https://github.com/XIU2/CloudflareSpeedTest
+#	Project: CloudflareSpeedTest automatically update DNS records
+#	Version: 1.0.5
+#	Author: XIU2
+#	Project: https://github.com/XIU2/CloudflareSpeedTest
 # --------------------------------------------------------------
 
 _READ() {
-	[[ ! -e "cfst_ddns.conf" ]] && echo -e "[错误] 配置文件不存在 [cfst_ddns.conf] !" && exit 1
+	[[ ! -e "cfst_ddns.conf" ]] && echo -e "[Error] Config file does not exist [cfst_ddns.conf] !" && exit 1
 	CONFIG=$(cat "cfst_ddns.conf")
 	FOLDER=$(echo "${CONFIG}"|grep 'FOLDER='|awk -F '=' '{print $NF}')
-	[[ -z "${FOLDER}" ]] && echo -e "[错误] 缺少配置项 [FOLDER] !" && exit 1
+	[[ -z "${FOLDER}" ]] && echo -e "[Error] Missing config item [FOLDER] !" && exit 1
 	ZONE_ID=$(echo "${CONFIG}"|grep 'ZONE_ID='|awk -F '=' '{print $NF}')
-	[[ -z "${ZONE_ID}" ]] && echo -e "[错误] 缺少配置项 [ZONE_ID] !" && exit 1
+	[[ -z "${ZONE_ID}" ]] && echo -e "[Error] Missing config item [ZONE_ID] !" && exit 1
 	DNS_RECORDS_ID=$(echo "${CONFIG}"|grep 'DNS_RECORDS_ID='|awk -F '=' '{print $NF}')
-	[[ -z "${DNS_RECORDS_ID}" ]] && echo -e "[错误] 缺少配置项 [DNS_RECORDS_ID] !" && exit 1
+	[[ -z "${DNS_RECORDS_ID}" ]] && echo -e "[Error] Missing config item [DNS_RECORDS_ID] !" && exit 1
 	KEY=$(echo "${CONFIG}"|grep 'KEY='|awk -F '=' '{print $NF}')
-	[[ -z "${KEY}" ]] && echo -e "[错误] 缺少配置项 [KEY] !" && exit 1
+	[[ -z "${KEY}" ]] && echo -e "[Error] Missing config item [KEY] !" && exit 1
 	EMAIL=$(echo "${CONFIG}"|grep 'EMAIL='|awk -F '=' '{print $NF}')
-	[[ -z "${EMAIL}" ]] && echo -e "[信息] 缺少配置项 [EMAIL]，由 [API 密钥] 方式转为 [API 令牌] 方式!"
+	[[ -z "${EMAIL}" ]] && echo -e "[Info] Missing config item [EMAIL]; switching from [API key] mode to [API token] mode!"
 	TYPE=$(echo "${CONFIG}"|grep 'TYPE='|awk -F '=' '{print $NF}')
-	[[ -z "${TYPE}" ]] && echo -e "[错误] 缺少配置项 [TYPE] !" && exit 1
+	[[ -z "${TYPE}" ]] && echo -e "[Error] Missing config item [TYPE] !" && exit 1
 	NAME=$(echo "${CONFIG}"|grep 'NAME='|awk -F '=' '{print $NF}')
-	[[ -z "${NAME}" ]] && echo -e "[错误] 缺少配置项 [NAME] !" && exit 1
+	[[ -z "${NAME}" ]] && echo -e "[Error] Missing config item [NAME] !" && exit 1
 	TTL=$(echo "${CONFIG}"|grep 'TTL='|awk -F '=' '{print $NF}')
-	[[ -z "${TTL}" ]] && echo -e "[错误] 缺少配置项 [TTL] !" && exit 1
+	[[ -z "${TTL}" ]] && echo -e "[Error] Missing config item [TTL] !" && exit 1
 	PROXIED=$(echo "${CONFIG}"|grep 'PROXIED='|awk -F '=' '{print $NF}')
-	[[ -z "${PROXIED}" ]] && echo -e "[错误] 缺少配置项 [PROXIED] !" && exit 1
+	[[ -z "${PROXIED}" ]] && echo -e "[Error] Missing config item [PROXIED] !" && exit 1
 }
 
 _UPDATE() {
-	# 这里可以自己添加、修改 CFST 的运行参数
+	# You can add or modify CFST runtime parameters here
 	./cfst -o "result_ddns.txt"
 
-	# 判断结果文件是否存在，如果不存在说明结果为 0
-	[[ ! -e "result_ddns.txt" ]] && echo "CFST 测速结果 IP 数量为 0，跳过下面步骤..." && exit 0
+	# Check whether the result file exists; if not, the result count is 0
+	[[ ! -e "result_ddns.txt" ]] && echo "CFST speed test returned 0 IPs; skipping the following steps..." && exit 0
 
 	CONTENT=$(sed -n "2,1p" result_ddns.txt | awk -F, '{print $1}')
 	if [[ -z "${CONTENT}" ]]; then
-		echo "CFST 测速结果 IP 数量为 0，跳过下面步骤..."
+		echo "CFST speed test returned 0 IPs; skipping the following steps..."
 		exit 0
 	fi
-	# 如果 EMAIL 变量是空的，那么就代表要使用 API 令牌方式
+	# If the EMAIL variable is empty, API token mode is used
 	if [[ -n "${EMAIL}" ]]; then
-		# API 密钥方式（全局权限）
+		# API key mode (global permissions)
 		curl -X PUT "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/${DNS_RECORDS_ID}" \
 			-H "X-Auth-Email: ${EMAIL}" \
 			-H "X-Auth-Key: ${KEY}" \
 			-H "Content-Type: application/json" \
 			--data "{\"type\":\"${TYPE}\",\"name\":\"${NAME}\",\"content\":\"${CONTENT}\",\"ttl\":${TTL},\"proxied\":${PROXIED}}"
 	else
-		# API 令牌方式（自定义权限）
+		# API token mode (custom permissions)
 		curl -X PUT "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/${DNS_RECORDS_ID}" \
 			-H "Authorization: Bearer ${KEY}" \
 			-H "Content-Type: application/json" \
